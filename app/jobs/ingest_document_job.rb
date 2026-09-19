@@ -7,6 +7,9 @@ class IngestDocumentJob < ApplicationJob
     document = Document.find(document_id)
     document.update!(status: "processing", error_message: nil)
 
+    text = Ingest::TextExtractor.new.call(document)
+    document.update!(content: text)
+
     splitter = Chunking::Splitter.new
     embeddings = Embeddings::Client.build
     pieces = splitter.call(document.content)

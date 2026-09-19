@@ -5,7 +5,7 @@ Clients bring their own LLM for generation.
 
 ## Stack
 
-- Ruby 3.3 / Rails 8 API
+- Ruby 3.4 / Rails 8 API
 - PostgreSQL + pgvector (Docker Compose)
 - Solid Queue for async ingest
 - Embedding providers: `fake` (local) or `openai`
@@ -32,13 +32,24 @@ All routes except `/health` and `/up` require:
 
 `Authorization: Bearer rag_...`
 
-### Create document
+### Create document (JSON text)
 
 ```bash
 curl -s -X POST http://localhost:3000/documents \
   -H "Authorization: Bearer $RAG_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"document":{"title":"Notes","content":"Your document text here","source_type":"text"}}'
+```
+
+### Create document (file upload)
+
+`POST /documents` also accepts `multipart/form-data`. Text (`.txt`, `.md`, `.csv`) and PDF files are extracted during ingest.
+
+```bash
+curl -s -X POST http://localhost:3000/documents \
+  -H "Authorization: Bearer $RAG_API_KEY" \
+  -F "document[title]=Notes" \
+  -F "document[file]=@./notes.pdf"
 ```
 
 ### Query (returns chunks only)
