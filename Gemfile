@@ -49,8 +49,11 @@ group :development, :test do
   gem "rubocop-rails-omakase", require: false
 end
 
+# json 3.x changes JSON.parse arity and breaks Rails request/Active Storage decoding on this stack.
+gem "json", "~> 2.13"
 gem "neighbor", "~> 0.6.0"
 gem "bcrypt", "~> 3.1"
 gem "faraday", "~> 2.14"
+gem "pdf-reader", "~> 2.14"
 
 gem "dotenv-rails", "~> 3.2", groups: [ :development, :test ]
