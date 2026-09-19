@@ -8,7 +8,7 @@ module Retrieval
     end
 
     def call(query:, top_k: default_top_k)
-      k = [[ top_k.to_i, 1 ].max, max_top_k ].min
+      k = [ [ top_k.to_i, 1 ].max, max_top_k ].min
       vector = @embeddings.embed([ query ]).first
 
       Chunk.for_tenant(@tenant)
