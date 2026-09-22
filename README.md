@@ -17,6 +17,7 @@ cp .env.example .env
 docker compose up -d
 bin/setup
 bin/rails db:seed   # prints a one-time API key
+# or: bin/rails "rag:mint_api_key[Default,default]"
 bin/rails server
 ```
 
@@ -28,9 +29,30 @@ bin/jobs
 
 ## API
 
-All routes except `/health` and `/up` require:
+All routes except `/health`, `/up`, and `POST /api_keys` require:
 
 `Authorization: Bearer rag_...`
+
+`POST /api_keys` is an operator route. Set `OPERATOR_API_KEY` and pass that value as `Authorization: Bearer …` (or `X-Operator-Key`).
+
+### Mint API key (operator)
+
+Creates (or reuses) a tenant and returns the raw token **once**. Only the digest is stored.
+
+```bash
+curl -s -X POST http://localhost:3000/api_keys \
+  -H "Authorization: Bearer $OPERATOR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"api_key":{"name":"default","tenant_name":"Acme"}}'
+```
+
+Or attach a key to an existing tenant with `"tenant_id": 1`.
+
+CLI equivalent:
+
+```bash
+bin/rails "rag:mint_api_key[Acme,default]"
+```
 
 ### Create document (JSON text)
 
