@@ -52,7 +52,7 @@ group :development, :test do
 end
 
 # json 3.x changes JSON.parse arity and breaks Rails request/Active Storage decoding on this stack.
-gem "json", "~> 2.13"
+gem "json", "~> 3.0"
 gem "neighbor", "~> 1.2.0"
 gem "bcrypt", "~> 3.1"
 gem "faraday", "~> 2.14"
