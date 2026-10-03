@@ -30,9 +30,8 @@ gem "kamal", require: false
 gem "thruster", require: false
 
 # Optional Active Storage variants (not required at boot for this API-only app)
-gem "image_processing", "~> 2.1", require: false
+gem "image_processing", "~> 2.2", require: false
 gem "ruby-vips", "~> 2.0", require: false
-
 
 # Use Rack CORS for handling Cross-Origin Resource Sharing (CORS), making cross-origin Ajax possible
 # gem "rack-cors"
