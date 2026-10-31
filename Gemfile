@@ -55,7 +55,7 @@ end
 gem "json", "~> 2.13"
 gem "neighbor", "~> 1.2.0"
 gem "bcrypt", "~> 3.1"
-gem "faraday", "~> 2.14"
+gem "faraday", "~> 2.15"
 gem "pdf-reader", "~> 2.14"
 
 gem "dotenv-rails", "~> 3.2", groups: [ :development, :test ]
