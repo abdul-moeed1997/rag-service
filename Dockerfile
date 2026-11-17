@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # RAG Service — Rails 8 API image for Kamal / any container host.
 
-ARG RUBY_VERSION=3.4.8
+ARG RUBY_VERSION=3.4.12
 FROM docker.io/library/ruby:${RUBY_VERSION}-slim AS base
 
 WORKDIR /rails
