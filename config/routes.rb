@@ -3,6 +3,10 @@ Rails.application.routes.draw do
   get "health" => "health#show"
 
   resources :api_keys, only: [ :create ]
-  resources :documents, only: [ :index, :show, :create, :destroy ]
+  resources :documents, only: [ :index, :show, :create, :destroy ] do
+    member do
+      post :reindex
+    end
+  end
   post "query" => "queries#create"
 end
