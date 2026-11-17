@@ -43,4 +43,3 @@ class ApiKeysMintTest < ActiveSupport::TestCase
     assert_equal "s3cret", tenant.webhook_secret
   end
 end
-
