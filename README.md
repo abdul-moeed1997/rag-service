@@ -43,10 +43,11 @@ Creates (or reuses) a tenant and returns the raw token **once**. Only the digest
 curl -s -X POST http://localhost:3000/api_keys \
   -H "Authorization: Bearer $OPERATOR_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"api_key":{"name":"default","tenant_name":"Acme"}}'
+  -d '{"api_key":{"name":"default","tenant_name":"Acme","tenant_webhook_url":"https://example.com/hooks/rag","tenant_webhook_secret":"optional-hmac-secret"}}'
 ```
 
-Or attach a key to an existing tenant with `"tenant_id": 1`.
+Or attach a key to an existing tenant with `"tenant_id": 1`. Optional `tenant_webhook_url` / `tenant_webhook_secret` configure ingest status callbacks for that tenant.
+
 
 CLI equivalent:
 
@@ -60,8 +61,11 @@ bin/rails "rag:mint_api_key[Acme,default]"
 curl -s -X POST http://localhost:3000/documents \
   -H "Authorization: Bearer $RAG_API_KEY" \
   -H "Content-Type: application/json" \
+  -H "Idempotency-Key: notes-v1" \
   -d '{"document":{"title":"Notes","content":"Your document text here","source_type":"text"}}'
 ```
+
+Pass `Idempotency-Key` to safely retry creates: the first call returns `202` and starts ingest; repeats with the same key return `200` with the original document and do **not** re-enqueue ingest.
 
 ### Create document (file upload)
 
@@ -72,6 +76,15 @@ curl -s -X POST http://localhost:3000/documents \
   -H "Authorization: Bearer $RAG_API_KEY" \
   -F "document[title]=Notes" \
   -F "document[file]=@./notes.pdf"
+```
+
+### Poll ingest status
+
+Ingest is async. Poll until `status` is `ready` or `failed`:
+
+```bash
+curl -s http://localhost:3000/documents/$DOCUMENT_ID \
+  -H "Authorization: Bearer $RAG_API_KEY"
 ```
 
 ### List documents (cursor pagination)
@@ -116,4 +129,25 @@ Each API key belongs to a tenant. Documents and vector search are always scoped 
 Authenticated tenant requests are limited per API key (`RATE_LIMIT_PER_MINUTE`, default 60).
 Exceeded limits return `429` with `Retry-After` and `X-RateLimit-*` headers.
 Set `RATE_LIMIT_ENABLED=false` to disable.
+
+## Ingest webhooks (optional)
+
+Prefer polling `GET /documents/:id` for status. When a tenant has `webhook_url` set, the service also POSTs on terminal ingest:
+
+```json
+{
+  "event": "document.ingest.ready",
+  "document_id": 1,
+  "status": "ready",
+  "error_message": null,
+  "occurred_at": "2026-11-17T12:00:00Z"
+}
+```
+
+If `webhook_secret` is set, the body is signed with `X-Rag-Signature: sha256=<hmac_hex>`. Webhook delivery failures are logged and do not change document status.
+
+## OpenAPI
+
+- Spec: [`GET /openapi.yaml`](http://localhost:3000/openapi.yaml) (also in [`docs/openapi.yaml`](docs/openapi.yaml))
+- Swagger UI: open [`/api-docs.html`](http://localhost:3000/api-docs.html) while the server is running
 
