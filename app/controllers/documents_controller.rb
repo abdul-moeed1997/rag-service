@@ -22,6 +22,15 @@ class DocumentsController < ApplicationController
   end
 
   def create
+    idempotency_key = request.headers["Idempotency-Key"].presence
+
+    if idempotency_key
+      existing = Document.for_tenant(current_tenant).find_by(idempotency_key: idempotency_key)
+      if existing
+        return render json: { document: serialize(existing) }, status: :ok
+      end
+    end
+
     attrs = document_params
     file = attrs.delete(:file)
 
@@ -30,6 +39,7 @@ class DocumentsController < ApplicationController
     doc.source_type = inferred_source_type(file, attrs[:source_type])
     doc.title = doc.title.presence || file&.original_filename
     doc.status = "pending"
+    doc.idempotency_key = idempotency_key
     doc.save!
     IngestDocumentJob.perform_later(doc.id)
     render json: { document: serialize(doc) }, status: :accepted
@@ -75,6 +85,7 @@ class DocumentsController < ApplicationController
       source_type: doc.source_type,
       status: doc.status,
       error_message: doc.error_message,
+      idempotency_key: doc.idempotency_key,
       filename: doc.file.attached? ? doc.file.filename.to_s : nil,
       created_at: doc.created_at,
       updated_at: doc.updated_at

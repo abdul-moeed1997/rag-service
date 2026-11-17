@@ -6,4 +6,5 @@ class Tenant < ApplicationRecord
   has_many :chunks, dependent: :destroy
 
   validates :name, presence: true
+  validates :webhook_url, format: { with: /\Ahttps?:\/\/.+\z/i, message: "must be an http(s) URL" }, allow_blank: true
 end

@@ -16,19 +16,27 @@ class IngestDocumentJob < ApplicationJob
 
     document.chunks.destroy_all
 
-    pieces.each_with_index do |text, index|
-      vector = embeddings.embed([ text ]).first
+    pieces.each_with_index do |piece, index|
+      vector = embeddings.embed([ piece ]).first
       document.chunks.create!(
         tenant_id: document.tenant_id,
         position: index,
-        content: text,
+        content: piece,
         embedding: vector
       )
     end
 
     document.update!(status: "ready")
+    notify_webhook(document)
   rescue StandardError => e
     document&.update!(status: "failed", error_message: e.message)
+    notify_webhook(document) if document
     raise
+  end
+
+  private
+
+  def notify_webhook(document)
+    Webhooks::IngestStatus.call(document: document)
   end
 end
