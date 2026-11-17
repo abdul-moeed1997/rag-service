@@ -151,3 +151,19 @@ If `webhook_secret` is set, the body is signed with `X-Rag-Signature: sha256=<hm
 - Spec: [`GET /openapi.yaml`](http://localhost:3000/openapi.yaml) (also in [`docs/openapi.yaml`](docs/openapi.yaml))
 - Swagger UI: open [`/api-docs.html`](http://localhost:3000/api-docs.html) while the server is running
 
+## Request IDs & logging
+
+Every response includes `X-Request-Id` (echoed from the request header when provided, otherwise generated).
+Production logs default to structured JSON (`LOG_FORMAT=json`); set `LOG_FORMAT=text` for plain lines.
+
+## Client examples
+
+See [`examples/`](examples/) for curl, Ruby, and Node samples that retrieve chunks then call your own LLM.
+
+## Deploy
+
+See [`docs/deploy.md`](docs/deploy.md) for Docker, Kamal, and Render notes. Build with:
+
+```bash
+docker build -t rag-service .
+```
