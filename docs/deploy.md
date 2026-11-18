@@ -8,10 +8,12 @@ Secrets stay in the environment (never bake them into the image). Minimum requir
 | `DATABASE_URL` | Postgres + pgvector connection string |
 | `SECRET_KEY_BASE` | Optional if master key provides it |
 | `OPERATOR_API_KEY` | Mint tenant API keys via `POST /api_keys` |
-| `EMBEDDING_PROVIDER` | `openai` or `fake` |
+| `EMBEDDING_PROVIDER` | `fake`, `openai`, `voyage`, or `local` |
 | `OPENAI_API_KEY` | Required when `EMBEDDING_PROVIDER=openai` |
+| `VOYAGE_API_KEY` | Required when `EMBEDDING_PROVIDER=voyage` |
+| `EMBEDDING_BASE_URL` | Required when `EMBEDDING_PROVIDER=local` (OpenAI-compatible host) |
 
-Optional: `LOG_FORMAT` (`json` default in the image), `RAILS_LOG_LEVEL`, `RATE_LIMIT_*`, chunk/top-k settings from `.env.example`.
+Optional: `VOYAGE_EMBEDDING_MODEL`, `LOCAL_EMBEDDING_MODEL`, `EMBEDDING_API_KEY` (local), `EMBEDDING_DIMENSIONS` (must match `chunks.embedding` / reindex if changed), `LOG_FORMAT` (`json` default in the image), `RAILS_LOG_LEVEL`, `RATE_LIMIT_*`, chunk/top-k settings from `.env.example`.
 
 ## Docker image
 
