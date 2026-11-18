@@ -1,4 +1,5 @@
 require "active_support/core_ext/integer/time"
+require Rails.root.join("lib/rag_service/json_log_formatter")
 
 Rails.application.configure do
   # Settings specified here will take precedence over those in config/application.rb.
@@ -31,11 +32,20 @@ Rails.application.configure do
   # config.ssl_options = { redirect: { exclude: ->(request) { request.path == "/up" } } }
 
   # Log to STDOUT with the current request id as a default log tag.
+  # LOG_FORMAT=text keeps human-readable lines; default is structured JSON for collectors.
   config.log_tags = [ :request_id ]
-  config.logger   = ActiveSupport::TaggedLogging.logger(STDOUT)
+  logger = ActiveSupport::Logger.new(STDOUT)
+  logger.formatter =
+    if ENV.fetch("LOG_FORMAT", "json") == "text"
+      Logger::Formatter.new
+    else
+      RagService::JsonLogFormatter.new
+    end
+  config.logger = ActiveSupport::TaggedLogging.new(logger)
 
   # Change to "debug" to log everything (including potentially personally-identifiable information!).
   config.log_level = ENV.fetch("RAILS_LOG_LEVEL", "info")
+
 
   # Prevent health checks from clogging up the logs.
   config.silence_healthcheck_path = "/up"

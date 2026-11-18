@@ -3,6 +3,7 @@
 class ApplicationController < ActionController::API
   include Authenticatable
   include RateLimitable
+  include RequestIdTrackable
 
   rescue_from ActiveRecord::RecordNotFound do
     render json: { error: "not_found", message: "Resource not found" }, status: :not_found
