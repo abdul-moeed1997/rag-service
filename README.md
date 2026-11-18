@@ -119,10 +119,10 @@ curl -s -X POST http://localhost:3000/documents/$DOCUMENT_ID/reindex \
 curl -s -X POST http://localhost:3000/query \
   -H "Authorization: Bearer $RAG_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"query":"What does the doc say?","top_k":5,"namespace":"default"}'
+  -d '{"query":"What does the doc say?","top_k":5,"namespace":"default","mode":"vector"}'
 ```
 
-Omit `namespace` to search all namespaces for the tenant. Pass retrieved `chunks` into your own LLM to produce an answer.
+Omit `namespace` to search all namespaces for the tenant. Set `mode` to `hybrid` to fuse keyword full-text search with vector similarity (RRF); default is `vector`. Pass retrieved `chunks` into your own LLM to produce an answer.
 
 ## Multi-tenant isolation
 

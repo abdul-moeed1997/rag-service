@@ -9,11 +9,13 @@ class QueriesController < ApplicationController
 
     top_k = params[:top_k]
     namespace = params[:namespace].presence
+    mode = params[:mode].presence || "vector"
     chunks = Retrieval::Search.new(tenant: current_tenant).call(
       query: query,
       top_k: top_k || ENV.fetch("DEFAULT_TOP_K", "5"),
-      namespace: namespace
+      namespace: namespace,
+      mode: mode
     )
-    render json: { query: query, chunks: chunks, namespace: namespace }
+    render json: { query: query, chunks: chunks, namespace: namespace, mode: mode }
   end
 end
