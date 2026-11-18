@@ -29,10 +29,10 @@ gem "kamal", require: false
 # Add HTTP asset caching/compression and X-Sendfile acceleration to Puma [https://github.com/basecamp/thruster/]
 gem "thruster", require: false
 
-# Use Active Storage variants [https://guides.rubyonrails.org/active_storage_overview.html#transforming-images]
-gem "image_processing", "~> 2.1"
-# Required by image_processing 2.x / Active Storage Vips transformer
-gem "ruby-vips", "~> 2.0"
+# Optional Active Storage variants (not required at boot for this API-only app)
+gem "image_processing", "~> 2.1", require: false
+gem "ruby-vips", "~> 2.0", require: false
+
 
 # Use Rack CORS for handling Cross-Origin Resource Sharing (CORS), making cross-origin Ajax possible
 # gem "rack-cors"

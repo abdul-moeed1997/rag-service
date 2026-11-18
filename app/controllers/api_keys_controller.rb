@@ -4,6 +4,8 @@ class ApiKeysController < ApplicationController
   include OperatorAuthenticatable
 
   skip_before_action :authenticate_api_key!
+  skip_before_action :enforce_rate_limit!
+
 
   def create
     result = ApiKeys::Mint.call(**mint_params)

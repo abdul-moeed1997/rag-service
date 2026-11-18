@@ -2,8 +2,18 @@
 
 class DocumentsController < ApplicationController
   def index
-    docs = Document.for_tenant(current_tenant).order(created_at: :desc)
-    render json: { documents: docs.map { |d| serialize(d) } }
+    result = Documents::Paginator.new(
+      scope: Document.for_tenant(current_tenant),
+      after: params[:after],
+      limit: params[:limit]
+    ).call
+
+    render json: {
+      documents: result[:records].map { |doc| serialize(doc) },
+      pagination: result[:pagination]
+    }
+  rescue ArgumentError => e
+    render json: { error: "invalid", message: e.message }, status: :unprocessable_entity
   end
 
   def show
@@ -21,6 +31,21 @@ class DocumentsController < ApplicationController
     doc.title = doc.title.presence || file&.original_filename
     doc.status = "pending"
     doc.save!
+    IngestDocumentJob.perform_later(doc.id)
+    render json: { document: serialize(doc) }, status: :accepted
+  end
+
+  def reindex
+    doc = Document.for_tenant(current_tenant).find(params[:id])
+
+    if doc.status == "processing"
+      return render json: {
+        error: "conflict",
+        message: "Document is already processing"
+      }, status: :conflict
+    end
+
+    doc.update!(status: "pending", error_message: nil)
     IngestDocumentJob.perform_later(doc.id)
     render json: { document: serialize(doc) }, status: :accepted
   end

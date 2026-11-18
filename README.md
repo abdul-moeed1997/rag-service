@@ -74,6 +74,28 @@ curl -s -X POST http://localhost:3000/documents \
   -F "document[file]=@./notes.pdf"
 ```
 
+### List documents (cursor pagination)
+
+```bash
+curl -s "http://localhost:3000/documents?limit=20" \
+  -H "Authorization: Bearer $RAG_API_KEY"
+
+# Next page:
+curl -s "http://localhost:3000/documents?limit=20&after=$NEXT_CURSOR" \
+  -H "Authorization: Bearer $RAG_API_KEY"
+```
+
+Response includes `pagination.next_cursor`, `pagination.has_more`, and `pagination.limit`.
+
+### Reindex document
+
+Re-chunks and re-embeds an existing document (replaces old chunks):
+
+```bash
+curl -s -X POST http://localhost:3000/documents/$DOCUMENT_ID/reindex \
+  -H "Authorization: Bearer $RAG_API_KEY"
+```
+
 ### Query (returns chunks only)
 
 ```bash
@@ -88,3 +110,10 @@ Pass retrieved `chunks` into your own LLM to produce an answer.
 ## Multi-tenant isolation
 
 Each API key belongs to a tenant. Documents and vector search are always scoped to that tenant.
+
+## Rate limiting
+
+Authenticated tenant requests are limited per API key (`RATE_LIMIT_PER_MINUTE`, default 60).
+Exceeded limits return `429` with `Retry-After` and `X-RateLimit-*` headers.
+Set `RATE_LIMIT_ENABLED=false` to disable.
+
