@@ -14,8 +14,9 @@ test:
 production:
   primary: &primary_production
     <<: *default
+    host: <%= ENV.fetch("DB_HOST", "localhost") %>
     database: rag_service_production
-    username: rag_service
+    username: <%= ENV.fetch("DB_USERNAME", "rag_service") %>
     password: <%= ENV["RAG_SERVICE_DATABASE_PASSWORD"] %>
   cache:
     <<: *primary_production

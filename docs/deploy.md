@@ -5,8 +5,8 @@ Secrets stay in the environment (never bake them into the image). Minimum requir
 | Variable | Purpose |
 |----------|---------|
 | `RAILS_MASTER_KEY` | Decrypt credentials / generate secrets |
-| `DATABASE_URL` | Postgres + pgvector connection string |
-| `SECRET_KEY_BASE` | Optional if master key provides it |
+| `RAG_SERVICE_DATABASE_PASSWORD` | App DB password (match accessory `POSTGRES_PASSWORD`) |
+| `DB_HOST` | Postgres host (`rag_service-db` under Kamal) |
 | `OPERATOR_API_KEY` | Mint tenant API keys via `POST /api_keys` |
 | `EMBEDDING_PROVIDER` | `fake`, `openai`, `voyage`, or `local` |
 | `OPENAI_API_KEY` | Required when `EMBEDDING_PROVIDER=openai` |
@@ -21,7 +21,8 @@ Optional: `VOYAGE_EMBEDDING_MODEL`, `LOCAL_EMBEDDING_MODEL`, `EMBEDDING_API_KEY`
 docker build -t rag-service .
 docker run --rm -p 80:80 \
   -e RAILS_MASTER_KEY=... \
-  -e DATABASE_URL=postgres://... \
+  -e DB_HOST=... \
+  -e RAG_SERVICE_DATABASE_PASSWORD=... \
   -e OPERATOR_API_KEY=... \
   -e EMBEDDING_PROVIDER=fake \
   rag-service
@@ -29,22 +30,52 @@ docker run --rm -p 80:80 \
 
 Health: `GET /up` and `GET /health`.
 
-## Kamal
+## Kamal (primary path)
 
-This repo already ships `config/deploy.yml` and `.kamal/`. Typical flow:
+This repo ships a production-ready Kamal setup:
 
-1. Set registry + server hosts in `config/deploy.yml`.
-2. Put secrets in `.kamal/secrets` (see samples): at least `RAILS_MASTER_KEY`, and any registry password.
-3. Ensure accessories (or an external DB) provide Postgres with the `vector` extension.
-4. Deploy:
+- [`config/deploy.yml`](../config/deploy.yml) — GHCR image, kamal-proxy SSL, pgvector accessory
+- [`.kamal/secrets`](../.kamal/secrets) — pulls secrets from ENV + `config/master.key`
+- [`config/postgres/production.sql`](../config/postgres/production.sql) — enables `vector` + Solid DB databases
+
+### One-time setup
+
+1. **VPS** with Docker + SSH (root or a user in the docker group).
+2. Edit `config/deploy.yml`:
+   - `servers.web` and `accessories.db.host` → your server IP
+   - `proxy.host` → your DNS name (A/AAAA must point at that IP)
+3. Create a GitHub token with `write:packages` / `read:packages` for GHCR.
+4. Export secrets in your shell (or a password manager):
 
 ```bash
-bin/kamal setup    # first time
-bin/kamal deploy
+export KAMAL_REGISTRY_PASSWORD=ghp_...   # GHCR token
+export POSTGRES_PASSWORD='strong-db-password'
+export OPERATOR_API_KEY='strong-operator-key'
+# Optional when not using fake embeddings:
+# export OPENAI_API_KEY=...
+# export VOYAGE_API_KEY=...
+```
+
+5. Ensure `config/master.key` exists locally (for `RAILS_MASTER_KEY` in `.kamal/secrets`).
+6. Boot accessories + app:
+
+```bash
+bin/kamal setup    # first time (registry login, accessory, deploy)
+bin/kamal deploy   # later releases
 bin/kamal logs -f
 ```
 
-`SOLID_QUEUE_IN_PUMA=true` runs jobs inside the web process. For heavier ingest, add a dedicated `job` role running `bin/jobs` (commented example in `config/deploy.yml`).
+`SOLID_QUEUE_IN_PUMA=true` runs jobs inside the web process. For heavier ingest, uncomment the `job` role in `deploy.yml`.
+
+To switch embeddings after deploy, set `EMBEDDING_PROVIDER` (and keys) in `deploy.yml` `env.clear` / `env.secret`, then `bin/kamal deploy`. Changing dimensions requires a migration + reindex.
+
+### Useful aliases
+
+```bash
+bin/kamal console
+bin/kamal shell
+bin/kamal dbc
+```
 
 ## Render
 
@@ -55,7 +86,7 @@ bin/kamal logs -f
    CREATE EXTENSION IF NOT EXISTS vector;
    ```
 
-3. Set env vars from the table above (`DATABASE_URL` is usually injected automatically).
+3. Set env vars from the table above (`DATABASE_URL` is usually injected automatically — map host/password into `DB_HOST` / `RAG_SERVICE_DATABASE_PASSWORD`, or adjust `config/database.yml`).
 4. Add a **Background Worker** with start command `bin/jobs` if you prefer Solid Queue outside Puma.
 5. Point health checks at `/up`.
 

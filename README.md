@@ -174,8 +174,10 @@ See [`examples/`](examples/) for curl, Ruby, and Node samples that retrieve chun
 
 ## Deploy
 
-See [`docs/deploy.md`](docs/deploy.md) for Docker, Kamal, and Render notes. Build with:
+Kamal is configured for GHCR + pgvector + SSL (`config/deploy.yml`). See [`docs/deploy.md`](docs/deploy.md) for the full checklist (server IP, DNS, secrets), plus plain Docker and Render options.
 
 ```bash
-docker build -t rag-service .
+# After editing deploy.yml hosts/proxy.host and exporting secrets:
+bin/kamal setup
+bin/kamal deploy
 ```
