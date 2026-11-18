@@ -57,13 +57,42 @@ class DocumentUploadTest < ActionDispatch::IntegrationTest
     assert(chunks.any? { |chunk| chunk["content"].include?("kiwi") })
   end
 
+  test "extracts text from an uploaded HTML file and makes it queryable" do
+    document_id = nil
+    html = <<~HTML
+      <html><body><h1>html unique mango grove</h1><script>ignored()</script></body></html>
+    HTML
+
+    perform_enqueued_jobs do
+      post "/documents",
+           params: { document: { file: html_upload(html) } },
+           headers: auth_for(@key)
+      assert_response :accepted
+      body = response.parsed_body.fetch("document")
+      document_id = body["id"]
+      assert_equal "html", body["source_type"]
+      assert_equal "notes.html", body["filename"]
+    end
+
+    get "/documents/#{document_id}", headers: auth_for(@key), as: :json
+    assert_equal "ready", response.parsed_body.dig("document", "status")
+
+    post "/query",
+         params: { query: "mango grove", top_k: 3 },
+         headers: auth_for(@key),
+         as: :json
+    chunks = response.parsed_body.fetch("chunks")
+    assert(chunks.any? { |chunk| chunk["content"].include?("mango") })
+    refute(chunks.any? { |chunk| chunk["content"].include?("ignored()") })
+  end
+
   test "rejects unsupported file types" do
     post "/documents",
          params: { document: { file: uploaded_file("not-a-document", filename: "photo.png", content_type: "image/png") } },
          headers: auth_for(@key)
 
     assert_response :unprocessable_entity
-    assert_match(/text or PDF/, response.parsed_body["message"])
+    assert_match(/text, HTML, or PDF/, response.parsed_body["message"])
   end
 
   test "rejects create without content or file" do

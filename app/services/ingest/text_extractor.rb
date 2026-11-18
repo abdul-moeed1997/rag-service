@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "pdf-reader"
+require "nokogiri"
 
 module Ingest
   class TextExtractor
@@ -8,17 +9,26 @@ module Ingest
     class EmptyText < StandardError; end
 
     TEXT_EXTENSIONS = %w[.txt .md .csv].freeze
+    HTML_EXTENSIONS = %w[.html .htm].freeze
     PDF_CONTENT_TYPES = %w[application/pdf application/x-pdf].freeze
+    HTML_CONTENT_TYPES = %w[text/html application/xhtml+xml].freeze
 
     def self.supported?(content_type, filename)
-      pdf?(content_type, filename) || text?(content_type, filename)
+      pdf?(content_type, filename) || html?(content_type, filename) || text?(content_type, filename)
     end
 
     def self.pdf?(content_type, filename)
       PDF_CONTENT_TYPES.include?(content_type.to_s) || File.extname(filename.to_s).downcase == ".pdf"
     end
 
+    def self.html?(content_type, filename)
+      HTML_CONTENT_TYPES.include?(content_type.to_s) ||
+        HTML_EXTENSIONS.include?(File.extname(filename.to_s).downcase)
+    end
+
     def self.text?(content_type, filename)
+      return false if html?(content_type, filename)
+
       type = content_type.to_s
       type.start_with?("text/") || TEXT_EXTENSIONS.include?(File.extname(filename.to_s).downcase)
     end
@@ -45,6 +55,8 @@ module Ingest
       blob.open do |io|
         if self.class.pdf?(content_type, filename)
           extract_pdf(io)
+        elsif self.class.html?(content_type, filename)
+          extract_html(io)
         elsif self.class.text?(content_type, filename)
           read_text(io)
         else
@@ -55,6 +67,14 @@ module Ingest
 
     def extract_pdf(io)
       PDF::Reader.new(io).pages.map { |page| page.text.to_s }.join("\n\n")
+    end
+
+    def extract_html(io)
+      raw = read_text(io)
+      doc = Nokogiri::HTML(raw)
+      doc.css("script, style, noscript").remove
+      text = doc.at("body")&.text || doc.text
+      text.to_s.gsub(/[ \t]+/, " ").gsub(/\n{3,}/, "\n\n").strip
     end
 
     def read_text(io)

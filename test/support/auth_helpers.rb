@@ -19,6 +19,10 @@ module AuthHelpers
     uploaded_file(PdfFixture.build(content), filename: filename, content_type: "application/pdf")
   end
 
+  def html_upload(content, filename: "notes.html", content_type: "text/html")
+    uploaded_file(content, filename: filename, content_type: content_type)
+  end
+
   def uploaded_file(content, filename:, content_type:)
     dir = Dir.mktmpdir
     path = File.join(dir, filename)
