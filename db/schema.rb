@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_18_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_18_130000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "vector"
@@ -65,6 +65,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_18_120000) do
     t.bigint "tenant_id", null: false
     t.datetime "updated_at", null: false
     t.string "namespace", default: "default", null: false
+    t.virtual "content_tsv", type: :tsvector, as: "to_tsvector('english'::regconfig, COALESCE(content, ''::text))", stored: true
+    t.index ["content_tsv"], name: "index_chunks_on_content_tsv", using: :gin
     t.index ["document_id", "position"], name: "index_chunks_on_document_id_and_position", unique: true
     t.index ["document_id"], name: "index_chunks_on_document_id"
     t.index ["tenant_id", "namespace"], name: "index_chunks_on_tenant_id_and_namespace"

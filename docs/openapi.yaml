@@ -215,6 +215,11 @@ paths:
                 namespace:
                   type: string
                   description: Limit retrieval to chunks in this namespace; omit to search all namespaces for the tenant
+                mode:
+                  type: string
+                  enum: [vector, hybrid]
+                  default: vector
+                  description: vector = cosine kNN only; hybrid = keyword FTS + vector fused with RRF
       responses:
         "200":
           description: Chunks
