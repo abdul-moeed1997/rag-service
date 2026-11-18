@@ -1,0 +1,51 @@
+{
+  "documents": [
+    {
+      "title": "Pineapple Recipe",
+      "content": "Alpha secret pineapple recipe: peel the fruit, simmer with brown sugar, and serve chilled with mint."
+    },
+    {
+      "title": "Widget Manual",
+      "content": "The industrial widget zebra assembly requires torque of twelve newton meters on the primary bolt."
+    },
+    {
+      "title": "Mango Canyon Guide",
+      "content": "Beta only mango canyon trail markers point west at the second switchback near the orchard overlook."
+    },
+    {
+      "title": "Lavender Ticket Flow",
+      "content": "Support only lavender ticket flow routes priority cases to the on-call queue within five minutes."
+    },
+    {
+      "title": "Orchid Release Notes",
+      "content": "Docs only orchid release notes cover the xylophone42 recovery steps for corrupted export files."
+    }
+  ],
+  "queries": [
+    {
+      "id": "pineapple",
+      "query": "pineapple recipe brown sugar",
+      "relevant_titles": ["Pineapple Recipe"]
+    },
+    {
+      "id": "widget",
+      "query": "widget zebra torque bolt",
+      "relevant_titles": ["Widget Manual"]
+    },
+    {
+      "id": "mango",
+      "query": "mango canyon trail markers",
+      "relevant_titles": ["Mango Canyon Guide"]
+    },
+    {
+      "id": "lavender",
+      "query": "lavender ticket flow on-call",
+      "relevant_titles": ["Lavender Ticket Flow"]
+    },
+    {
+      "id": "xylophone",
+      "query": "xylophone42 recovery steps",
+      "relevant_titles": ["Orchid Release Notes"]
+    }
+  ]
+}
