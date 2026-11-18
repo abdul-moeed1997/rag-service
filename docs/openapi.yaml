@@ -134,7 +134,7 @@ paths:
                       type: string
                     source_type:
                       type: string
-                      enum: [text, pdf]
+                      enum: [text, pdf, html]
           multipart/form-data:
             schema:
               type: object

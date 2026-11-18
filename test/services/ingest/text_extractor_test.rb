@@ -43,6 +43,33 @@ class Ingest::TextExtractorTest < ActiveSupport::TestCase
     assert_includes Ingest::TextExtractor.new.call(document), "pdf unique kiwi harvest"
   end
 
+  test "extracts visible text from an attached HTML file" do
+    html = <<~HTML
+      <html><head><style>.x{color:red}</style><script>alert(1)</script></head>
+      <body><h1>HTML unique mango grove</h1><p>More detail</p></body></html>
+    HTML
+    document = Document.new(tenant: @tenant, source_type: "html", status: "pending")
+    document.file.attach(
+      io: StringIO.new(html),
+      filename: "notes.html",
+      content_type: "text/html"
+    )
+    document.save!
+
+    text = Ingest::TextExtractor.new.call(document)
+    assert_includes text, "HTML unique mango grove"
+    assert_includes text, "More detail"
+    refute_includes text, "alert(1)"
+    refute_includes text, "color:red"
+    refute_includes text, "<h1>"
+  end
+
+  test "html? is true for text/html and not treated as plain text" do
+    assert Ingest::TextExtractor.html?("text/html", "page.html")
+    refute Ingest::TextExtractor.text?("text/html", "page.html")
+    assert Ingest::TextExtractor.supported?("text/html", "page.html")
+  end
+
   test "raises when there is no extractable text" do
     document = Document.new(
       tenant: @tenant,

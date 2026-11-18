@@ -3,7 +3,7 @@
 class Document < ApplicationRecord
   MAX_FILE_SIZE = 10.megabytes
   STATUSES = %w[pending processing ready failed].freeze
-  SOURCE_TYPES = %w[text pdf].freeze
+  SOURCE_TYPES = %w[text pdf html].freeze
 
   belongs_to :tenant
   has_many :chunks, dependent: :destroy
@@ -30,7 +30,7 @@ class Document < ApplicationRecord
   def supported_file_type
     return if Ingest::TextExtractor.supported?(file.content_type, file.filename.to_s)
 
-    errors.add(:file, "must be a text or PDF file")
+    errors.add(:file, "must be a text, HTML, or PDF file")
   end
 
   def file_size_within_limit

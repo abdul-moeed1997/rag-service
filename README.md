@@ -69,7 +69,7 @@ Pass `Idempotency-Key` to safely retry creates: the first call returns `202` and
 
 ### Create document (file upload)
 
-`POST /documents` also accepts `multipart/form-data`. Text (`.txt`, `.md`, `.csv`) and PDF files are extracted during ingest.
+`POST /documents` also accepts `multipart/form-data`. Text (`.txt`, `.md`, `.csv`), HTML (`.html`, `.htm`), and PDF files are extracted during ingest.
 
 ```bash
 curl -s -X POST http://localhost:3000/documents \

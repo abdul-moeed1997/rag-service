@@ -73,7 +73,10 @@ class DocumentsController < ApplicationController
   end
 
   def inferred_source_type(file, requested)
-    return "pdf" if file.present? && Ingest::TextExtractor.pdf?(file.content_type, file.original_filename)
+    if file.present?
+      return "pdf" if Ingest::TextExtractor.pdf?(file.content_type, file.original_filename)
+      return "html" if Ingest::TextExtractor.html?(file.content_type, file.original_filename)
+    end
 
     requested.presence || "text"
   end
