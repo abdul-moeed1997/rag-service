@@ -62,10 +62,10 @@ curl -s -X POST http://localhost:3000/documents \
   -H "Authorization: Bearer $RAG_API_KEY" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: notes-v1" \
-  -d '{"document":{"title":"Notes","content":"Your document text here","source_type":"text"}}'
+  -d '{"document":{"title":"Notes","content":"Your document text here","source_type":"text","namespace":"default"}}'
 ```
 
-Pass `Idempotency-Key` to safely retry creates: the first call returns `202` and starts ingest; repeats with the same key return `200` with the original document and do **not** re-enqueue ingest.
+Optional `namespace` (default `default`) isolates documents within a tenant. Pass `Idempotency-Key` to safely retry creates: the first call returns `202` and starts ingest; repeats with the same key return `200` with the original document and do **not** re-enqueue ingest.
 
 ### Create document (file upload)
 
@@ -93,6 +93,10 @@ curl -s http://localhost:3000/documents/$DOCUMENT_ID \
 curl -s "http://localhost:3000/documents?limit=20" \
   -H "Authorization: Bearer $RAG_API_KEY"
 
+# Filter by namespace:
+curl -s "http://localhost:3000/documents?namespace=support" \
+  -H "Authorization: Bearer $RAG_API_KEY"
+
 # Next page:
 curl -s "http://localhost:3000/documents?limit=20&after=$NEXT_CURSOR" \
   -H "Authorization: Bearer $RAG_API_KEY"
@@ -115,14 +119,14 @@ curl -s -X POST http://localhost:3000/documents/$DOCUMENT_ID/reindex \
 curl -s -X POST http://localhost:3000/query \
   -H "Authorization: Bearer $RAG_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"query":"What does the doc say?","top_k":5}'
+  -d '{"query":"What does the doc say?","top_k":5,"namespace":"default"}'
 ```
 
-Pass retrieved `chunks` into your own LLM to produce an answer.
+Omit `namespace` to search all namespaces for the tenant. Pass retrieved `chunks` into your own LLM to produce an answer.
 
 ## Multi-tenant isolation
 
-Each API key belongs to a tenant. Documents and vector search are always scoped to that tenant.
+Each API key belongs to a tenant. Documents and vector search are always scoped to that tenant. Within a tenant, optional `namespace` further isolates documents and retrieval.
 
 ## Rate limiting
 

@@ -20,6 +20,7 @@ class IngestDocumentJob < ApplicationJob
       vector = embeddings.embed([ piece ]).first
       document.chunks.create!(
         tenant_id: document.tenant_id,
+        namespace: document.namespace,
         position: index,
         content: piece,
         embedding: vector
