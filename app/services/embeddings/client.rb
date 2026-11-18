@@ -5,6 +5,8 @@ module Embeddings
     def self.build
       case ENV.fetch("EMBEDDING_PROVIDER", "fake")
       when "openai" then Openai.new
+      when "voyage" then Voyage.new
+      when "local" then Local.new
       when "fake" then Fake.new
       else
         raise ArgumentError, "Unknown EMBEDDING_PROVIDER: #{ENV['EMBEDDING_PROVIDER']}"

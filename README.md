@@ -8,7 +8,7 @@ Clients bring their own LLM for generation.
 - Ruby 3.4 / Rails 8 API
 - PostgreSQL + pgvector (Docker Compose)
 - Solid Queue for async ingest
-- Embedding providers: `fake` (local) or `openai`
+- Embedding providers: `fake`, `openai`, `voyage`, or `local` (OpenAI-compatible HTTP)
 
 ## Quick start
 
