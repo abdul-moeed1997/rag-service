@@ -124,6 +124,14 @@ curl -s -X POST http://localhost:3000/query \
 
 Omit `namespace` to search all namespaces for the tenant. Set `mode` to `hybrid` to fuse keyword full-text search with vector similarity (RRF); default is `vector`. Pass retrieved `chunks` into your own LLM to produce an answer.
 
+## Retrieval eval
+
+Golden recall@k harness (vector vs hybrid) lives under `eval/`. See [`eval/README.md`](eval/README.md).
+
+```bash
+bin/rails retrieval:eval
+```
+
 ## Multi-tenant isolation
 
 Each API key belongs to a tenant. Documents and vector search are always scoped to that tenant. Within a tenant, optional `namespace` further isolates documents and retrieval.
