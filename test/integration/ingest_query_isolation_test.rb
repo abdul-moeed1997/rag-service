@@ -75,4 +75,57 @@ class IngestQueryIsolationTest < ActionDispatch::IntegrationTest
     assert(chunks.none? { |chunk| chunk["document_id"] == id_a })
     assert(chunks.all? { |chunk| chunk["document_id"] == id_b })
   end
+
+  test "namespace filter isolates documents and query chunks within a tenant" do
+    id_support = nil
+    id_docs = nil
+
+    perform_enqueued_jobs do
+      post "/documents",
+           params: {
+             document: {
+               title: "Support",
+               content: "support only lavender ticket flow",
+               source_type: "text",
+               namespace: "support"
+             }
+           },
+           headers: auth_for(@key_a),
+           as: :json
+      assert_response :accepted
+      body = response.parsed_body.fetch("document")
+      id_support = body["id"]
+      assert_equal "support", body["namespace"]
+
+      post "/documents",
+           params: {
+             document: {
+               title: "Docs",
+               content: "docs only orchid release notes",
+               source_type: "text",
+               namespace: "docs"
+             }
+           },
+           headers: auth_for(@key_a),
+           as: :json
+      assert_response :accepted
+      id_docs = response.parsed_body.dig("document", "id")
+    end
+
+    get "/documents?namespace=support", headers: auth_for(@key_a), as: :json
+    assert_response :success
+    titles = response.parsed_body.fetch("documents").map { |doc| doc["title"] }
+    assert_includes titles, "Support"
+    assert_not_includes titles, "Docs"
+
+    post "/query",
+         params: { query: "lavender ticket", top_k: 5, namespace: "support" },
+         headers: auth_for(@key_a),
+         as: :json
+    assert_response :success
+    chunks = response.parsed_body.fetch("chunks")
+    assert(chunks.any? { |chunk| chunk["document_id"] == id_support })
+    assert(chunks.none? { |chunk| chunk["document_id"] == id_docs })
+    assert(chunks.none? { |chunk| chunk["content"].include?("orchid") })
+  end
 end

@@ -101,6 +101,11 @@ paths:
           schema:
             type: string
           description: Cursor from pagination.next_cursor
+        - name: namespace
+          in: query
+          schema:
+            type: string
+          description: Filter documents to a namespace within the tenant
       responses:
         "200":
           description: Document page
@@ -135,6 +140,10 @@ paths:
                     source_type:
                       type: string
                       enum: [text, pdf]
+                    namespace:
+                      type: string
+                      default: default
+                      description: Isolation namespace within the tenant (letters, digits, . _ -)
           multipart/form-data:
             schema:
               type: object
@@ -203,6 +212,9 @@ paths:
                   type: string
                 top_k:
                   type: integer
+                namespace:
+                  type: string
+                  description: Limit retrieval to chunks in this namespace; omit to search all namespaces for the tenant
       responses:
         "200":
           description: Chunks
@@ -234,6 +246,9 @@ components:
           type: string
         source_type:
           type: string
+        namespace:
+          type: string
+          default: default
         status:
           type: string
           enum: [pending, processing, ready, failed]

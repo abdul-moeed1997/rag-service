@@ -2,8 +2,11 @@
 
 class DocumentsController < ApplicationController
   def index
+    scope = Document.for_tenant(current_tenant)
+    scope = scope.in_namespace(params[:namespace]) if params[:namespace].present?
+
     result = Documents::Paginator.new(
-      scope: Document.for_tenant(current_tenant),
+      scope: scope,
       after: params[:after],
       limit: params[:limit]
     ).call
@@ -37,6 +40,7 @@ class DocumentsController < ApplicationController
     doc = Document.for_tenant(current_tenant).new(attrs.except(:source_type))
     doc.file.attach(file) if file.present?
     doc.source_type = inferred_source_type(file, attrs[:source_type])
+    doc.namespace = attrs[:namespace].presence || Document::DEFAULT_NAMESPACE
     doc.title = doc.title.presence || file&.original_filename
     doc.status = "pending"
     doc.idempotency_key = idempotency_key
@@ -69,7 +73,7 @@ class DocumentsController < ApplicationController
   private
 
   def document_params
-    params.require(:document).permit(:title, :content, :source_type, :file)
+    params.require(:document).permit(:title, :content, :source_type, :namespace, :file)
   end
 
   def inferred_source_type(file, requested)
@@ -83,6 +87,7 @@ class DocumentsController < ApplicationController
       id: doc.id,
       title: doc.title,
       source_type: doc.source_type,
+      namespace: doc.namespace,
       status: doc.status,
       error_message: doc.error_message,
       idempotency_key: doc.idempotency_key,

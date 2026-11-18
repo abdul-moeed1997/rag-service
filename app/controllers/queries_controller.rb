@@ -8,7 +8,12 @@ class QueriesController < ApplicationController
     end
 
     top_k = params[:top_k]
-    chunks = Retrieval::Search.new(tenant: current_tenant).call(query: query, top_k: top_k || ENV.fetch("DEFAULT_TOP_K", "5"))
-    render json: { query: query, chunks: chunks }
+    namespace = params[:namespace].presence
+    chunks = Retrieval::Search.new(tenant: current_tenant).call(
+      query: query,
+      top_k: top_k || ENV.fetch("DEFAULT_TOP_K", "5"),
+      namespace: namespace
+    )
+    render json: { query: query, chunks: chunks, namespace: namespace }
   end
 end

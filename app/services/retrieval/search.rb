@@ -7,13 +7,14 @@ module Retrieval
       @embeddings = embeddings
     end
 
-    def call(query:, top_k: default_top_k)
+    def call(query:, top_k: default_top_k, namespace: nil)
       k = [ [ top_k.to_i, 1 ].max, max_top_k ].min
       vector = @embeddings.embed([ query ]).first
 
-      Chunk.for_tenant(@tenant)
-           .embedded
-           .nearest_neighbors(:embedding, vector, distance: "cosine")
+      scope = Chunk.for_tenant(@tenant).embedded
+      scope = scope.in_namespace(namespace) if namespace.present?
+
+      scope.nearest_neighbors(:embedding, vector, distance: "cosine")
            .limit(k)
            .map do |chunk|
         {
