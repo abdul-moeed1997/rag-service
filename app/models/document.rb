@@ -11,11 +11,13 @@ class Document < ApplicationRecord
 
   validates :source_type, presence: true, inclusion: { in: SOURCE_TYPES }
   validates :status, inclusion: { in: STATUSES }
+  validates :idempotency_key, length: { maximum: 255 }, allow_nil: true
   validate :content_or_file_present
   validate :supported_file_type, if: -> { file.attached? }
   validate :file_size_within_limit, if: -> { file.attached? }
 
   scope :for_tenant, ->(tenant) { where(tenant_id: tenant.id) }
+
 
   private
 

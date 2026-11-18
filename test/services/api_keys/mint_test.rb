@@ -29,4 +29,17 @@ class ApiKeysMintTest < ActiveSupport::TestCase
     end
     assert_match(/name is required/, error.message)
   end
+
+  test "sets tenant webhook fields when provided" do
+    result = ApiKeys::Mint.call(
+      name: "ops",
+      tenant_name: "Hooked",
+      tenant_webhook_url: "https://example.com/hooks",
+      tenant_webhook_secret: "s3cret"
+    )
+
+    tenant = result[:tenant].reload
+    assert_equal "https://example.com/hooks", tenant.webhook_url
+    assert_equal "s3cret", tenant.webhook_secret
+  end
 end

@@ -18,6 +18,7 @@ class ApiKeysController < ApplicationController
         name: key.name,
         tenant_id: tenant.id,
         tenant_name: tenant.name,
+        tenant_webhook_url: tenant.webhook_url,
         token: key.raw_token,
         token_prefix: key.token_prefix,
         created_at: key.created_at
@@ -30,6 +31,12 @@ class ApiKeysController < ApplicationController
   private
 
   def mint_params
-    params.require(:api_key).permit(:name, :tenant_id, :tenant_name).to_h.symbolize_keys
+    params.require(:api_key).permit(
+      :name,
+      :tenant_id,
+      :tenant_name,
+      :tenant_webhook_url,
+      :tenant_webhook_secret
+    ).to_h.symbolize_keys
   end
 end

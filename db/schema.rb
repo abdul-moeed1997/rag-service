@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_19_201743) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_17_171704) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "vector"
@@ -73,11 +73,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_19_201743) do
     t.text "content"
     t.datetime "created_at", null: false
     t.text "error_message"
+    t.string "idempotency_key"
     t.string "source_type", default: "text", null: false
     t.string "status", default: "pending", null: false
     t.bigint "tenant_id", null: false
     t.string "title"
     t.datetime "updated_at", null: false
+    t.index ["tenant_id", "idempotency_key"], name: "index_documents_on_tenant_id_and_idempotency_key", unique: true, where: "(idempotency_key IS NOT NULL)"
     t.index ["tenant_id", "status"], name: "index_documents_on_tenant_id_and_status"
     t.index ["tenant_id"], name: "index_documents_on_tenant_id"
   end
@@ -86,6 +88,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_19_201743) do
     t.datetime "created_at", null: false
     t.string "name", null: false
     t.datetime "updated_at", null: false
+    t.string "webhook_secret"
+    t.string "webhook_url"
   end
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
