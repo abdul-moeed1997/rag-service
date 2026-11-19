@@ -52,6 +52,14 @@ class Chunking::SplitterTest < ActiveSupport::TestCase
     assert_not_empty chunks[0].split(" ") & chunks[1].split(" ")
   end
 
+  test "an overlap begins at a sentence start when one falls inside it" do
+    text = "#{'Filler words keep going on and on here. ' * 4}Short tail one. Short tail two. #{'More text follows after that point. ' * 3}".strip
+    chunks = Chunking::Splitter.new(size: 200, overlap: 40).call(text)
+
+    assert_operator chunks.size, :>, 1
+    chunks.drop(1).each { |chunk| assert_match(/\A[A-Z]/, chunk) }
+  end
+
   test "still makes progress on text with no whitespace" do
     chunks = Chunking::Splitter.new(size: 10, overlap: 2).call("x" * 35)
 

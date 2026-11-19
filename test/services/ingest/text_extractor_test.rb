@@ -64,10 +64,50 @@ class Ingest::TextExtractorTest < ActiveSupport::TestCase
     refute_includes text, "<h1>"
   end
 
+  test "keeps words from neighbouring HTML elements apart" do
+    text = extract_html(<<~HTML)
+      <html><body><ul><li>alpha</li><li>beta</li></ul><div>gamma</div><div>delta</div>
+      <table><tr><td>one</td><td>two</td></tr></table>
+      <p><span>epsilon</span><span>zeta</span></p><h2>Title</h2><p>Body</p></body></html>
+    HTML
+
+    words = text.split(/\s+/)
+    %w[alpha beta gamma delta one two epsilon zeta Title Body].each { |word| assert_includes words, word }
+  end
+
+  test "does not split a word that only changes inline formatting" do
+    text = extract_html("<html><body><p>H<sub>2</sub>O and <b>bold</b>ly go, x<sup>2</sup>.</p></body></html>")
+
+    assert_includes text, "H2O"
+    assert_includes text, "boldly"
+    assert_includes text, "x2."
+  end
+
+  test "separates paragraphs with a blank line and keeps inline text on one line" do
+    text = extract_html("<html><body><p>First <em>para</em> here.</p><p>Second para.</p></body></html>")
+
+    assert_equal "First para here.\n\nSecond para.", text
+  end
+
+  test "drops diagram source and other non-visible HTML content" do
+    text = extract_html(<<~HTML)
+      <html><body><p>Visible</p><pre class="mermaid">flowchart LR A --> B</pre>
+      <svg><text>vector label</text></svg><template><p>hidden template</p></template></body></html>
+    HTML
+
+    assert_equal "Visible", text
+  end
+
   test "html? is true for text/html and not treated as plain text" do
     assert Ingest::TextExtractor.html?("text/html", "page.html")
     refute Ingest::TextExtractor.text?("text/html", "page.html")
     assert Ingest::TextExtractor.supported?("text/html", "page.html")
+  end
+
+  test "raises when an HTML file has no visible text" do
+    assert_raises(Ingest::TextExtractor::EmptyText) do
+      extract_html("<html><head><script>var x = 1</script></head><body><svg></svg></body></html>")
+    end
   end
 
   test "raises when there is no extractable text" do
@@ -83,5 +123,14 @@ class Ingest::TextExtractorTest < ActiveSupport::TestCase
       Ingest::TextExtractor.new.call(document)
     end
     assert_match(/No extractable text/, error.message)
+  end
+
+  private
+
+  def extract_html(html)
+    document = Document.new(tenant: @tenant, source_type: "html", status: "pending")
+    document.file.attach(io: StringIO.new(html), filename: "page.html", content_type: "text/html")
+    document.save!
+    Ingest::TextExtractor.new.call(document)
   end
 end

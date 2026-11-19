@@ -6,10 +6,11 @@ module Retrieval
   # Owns its own input rules: callers pass raw values and read back what was
   # actually used (`mode`, `top_k`). In every mode a higher `score` is better:
   # cosine similarity for vector, reciprocal-rank-fusion score for hybrid.
+  # `min_score` drops weaker hits, so "nothing relevant" can come back empty.
   class Search
     class InvalidInput < ArgumentError; end
 
-    Result = Struct.new(:hits, :mode, :top_k, keyword_init: true)
+    Result = Struct.new(:hits, :mode, :top_k, :min_score, keyword_init: true)
 
     MODES = %w[vector hybrid].freeze
     DEFAULT_MODE = "vector"
@@ -21,16 +22,18 @@ module Retrieval
       @embeddings = embeddings
     end
 
-    def call(query:, top_k: nil, namespace: nil, mode: nil)
+    def call(query:, top_k: nil, namespace: nil, mode: nil, min_score: nil)
       text = validate_query(query)
       search_mode = validate_mode(mode)
       k = effective_top_k(top_k)
+      threshold = validate_min_score(min_score)
 
       scope = Chunk.for_tenant(@tenant).embedded.embedded_with(@embeddings.model_id)
       scope = scope.in_namespace(namespace) if namespace.present?
 
       hits = search_mode == "hybrid" ? hybrid_search(scope, text, k) : vector_search(scope, text, k)
-      Result.new(hits: hits, mode: search_mode, top_k: k)
+      hits = hits.select { |hit| hit[:score] >= threshold } if threshold
+      Result.new(hits: hits, mode: search_mode, top_k: k, min_score: threshold)
     end
 
     private
@@ -48,6 +51,14 @@ module Retrieval
       return value if MODES.include?(value)
 
       raise InvalidInput, "mode must be one of: #{MODES.join(', ')}"
+    end
+
+    def validate_min_score(min_score)
+      return if min_score.nil? || min_score.to_s.strip.empty?
+
+      Float(min_score.to_s)
+    rescue ArgumentError
+      raise InvalidInput, "min_score must be a number"
     end
 
     def effective_top_k(top_k)

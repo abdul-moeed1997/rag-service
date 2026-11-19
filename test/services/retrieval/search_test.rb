@@ -109,6 +109,39 @@ class Retrieval::SearchTest < ActiveSupport::TestCase
     assert_in_delta 1.0, vector_top[:score], 0.0001
   end
 
+  test "min_score drops weaker hits and is reported back" do
+    exact = create_chunk("exact unique bamboo protocol", position: 0)
+    create_chunk("unrelated zebra meadow", position: 1)
+    search = Retrieval::Search.new(tenant: @tenant, embeddings: @embeddings)
+
+    unfiltered = search.call(query: "exact unique bamboo protocol", top_k: 5)
+    assert_equal 2, unfiltered.hits.size
+    assert_nil unfiltered.min_score
+
+    filtered = search.call(query: "exact unique bamboo protocol", top_k: 5, min_score: "0.99")
+    assert_equal [ exact.id ], filtered.hits.map { |hit| hit[:id] }
+    assert_in_delta 0.99, filtered.min_score
+
+    assert_empty search.call(query: "exact unique bamboo protocol", top_k: 5, min_score: 1.5).hits
+  end
+
+  test "min_score filters hybrid hits by their fused score" do
+    keyword = create_chunk("The rare token xylophone42 appears only here", position: 0)
+    3.times { |i| create_chunk("noise filler paragraph #{i} about orchids", position: i + 1) }
+    search = Retrieval::Search.new(tenant: @tenant, embeddings: @embeddings)
+
+    # A chunk found by both rankers scores above 1/61; one found by a single ranker cannot.
+    hits = search.call(query: "xylophone42", top_k: 5, mode: "hybrid", min_score: 0.0165).hits
+    assert_equal [ keyword.id ], hits.map { |hit| hit[:id] }
+  end
+
+  test "rejects a min_score that is not a number" do
+    search = Retrieval::Search.new(tenant: @tenant, embeddings: @embeddings)
+
+    error = assert_raises(Retrieval::Search::InvalidInput) { search.call(query: "x", min_score: "high") }
+    assert_match(/min_score must be a number/, error.message)
+  end
+
   test "ignores chunks embedded with a different model" do
     current = create_chunk("shared pineapple phrase", position: 0)
     create_chunk("shared pineapple phrase", position: 1, embedding_model: "other:model:1536")

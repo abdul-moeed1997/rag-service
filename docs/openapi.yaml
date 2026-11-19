@@ -286,6 +286,12 @@ paths:
                 namespace:
                   type: string
                   description: Limit retrieval to chunks in this namespace; omit to search all namespaces for the tenant
+                min_score:
+                  type: number
+                  description: >-
+                    Drop chunks scoring below this value, so a query with no good match can return an empty list.
+                    Cosine similarity in vector mode; rank-fusion score in hybrid mode (above 0.0164 means both
+                    keyword and vector search found the chunk).
                 mode:
                   type: string
                   enum: [vector, hybrid]
@@ -311,6 +317,10 @@ paths:
                   top_k:
                     type: integer
                     description: The top_k that was applied after clamping
+                  min_score:
+                    type: number
+                    nullable: true
+                    description: The min_score that was applied, or null
                   chunks:
                     type: array
                     items:
@@ -328,7 +338,7 @@ paths:
                           type: number
                           description: Higher is better. Cosine similarity in vector mode, RRF score in hybrid mode; not comparable across modes.
         "422":
-          description: Missing, blank, or too-long query, or an unknown mode
+          description: Missing, blank, or too-long query, an unknown mode, or a non-numeric min_score
         "503":
           description: Embedding provider unavailable
 components:
