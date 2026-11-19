@@ -10,6 +10,7 @@ module Chunking
     LINE = /\n/
     WORD = /\s+/
     BOUNDARIES = [ PARAGRAPH, SENTENCE, LINE, WORD ].freeze
+    OVERLAP_START = Regexp.union(PARAGRAPH, SENTENCE)
 
     def initialize(size: ENV.fetch("CHUNK_SIZE", "800").to_i, overlap: ENV.fetch("CHUNK_OVERLAP", "100").to_i)
       @size = [ size, 1 ].max
@@ -58,13 +59,18 @@ module Chunking
       last
     end
 
-    # Step back by the overlap, then forward to the start of a word.
+    # Step back by the overlap, then forward to the start of a sentence if one
+    # begins inside the overlap, otherwise to the start of a word.
     def next_start(text, finish)
       candidate = finish - @overlap
       return finish if candidate >= finish
+
+      region = text[candidate...finish]
+      sentence = region.match(OVERLAP_START)
+      return candidate + sentence.end(0) if sentence && sentence.end(0) < region.length
       return candidate if candidate.zero? || text[candidate - 1].match?(/\s/)
 
-      gap = text[candidate...finish] =~ /\s/
+      gap = region =~ /\s/
       gap ? candidate + gap + 1 : finish
     end
   end
