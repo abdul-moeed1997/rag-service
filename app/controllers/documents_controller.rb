@@ -25,41 +25,27 @@ class DocumentsController < ApplicationController
   end
 
   def create
-    idempotency_key = request.headers["Idempotency-Key"].presence
-
-    if idempotency_key
-      existing = Document.for_tenant(current_tenant).find_by(idempotency_key: idempotency_key)
-      if existing
-        return render json: { document: serialize(existing) }, status: :ok
-      end
-    end
-
     attrs = document_params
-    file = attrs.delete(:file)
+    result = Documents::Submit.call(
+      tenant: current_tenant,
+      attributes: attrs.except(:file),
+      file: attrs[:file],
+      idempotency_key: request.headers["Idempotency-Key"]
+    )
 
-    doc = Document.for_tenant(current_tenant).new(attrs.except(:source_type))
-    doc.file.attach(file) if file.present?
-    doc.source_type = inferred_source_type(file, attrs[:source_type])
-    doc.namespace = attrs[:namespace].presence || Document::DEFAULT_NAMESPACE
-    doc.title = doc.title.presence || file&.original_filename
-    doc.status = "pending"
-    doc.idempotency_key = idempotency_key
-    doc.save!
-    IngestDocumentJob.perform_later(doc.id)
-    render json: { document: serialize(doc) }, status: :accepted
+    render json: { document: serialize(result.document) }, status: result.replayed? ? :ok : :accepted
   end
 
   def reindex
     doc = Document.for_tenant(current_tenant).find(params[:id])
 
-    if doc.status == "processing"
+    unless doc.request_reindex!
       return render json: {
         error: "conflict",
         message: "Document is already processing"
       }, status: :conflict
     end
 
-    doc.update!(status: "pending", error_message: nil)
     IngestDocumentJob.perform_later(doc.id)
     render json: { document: serialize(doc) }, status: :accepted
   end
@@ -74,15 +60,6 @@ class DocumentsController < ApplicationController
 
   def document_params
     params.require(:document).permit(:title, :content, :source_type, :namespace, :file)
-  end
-
-  def inferred_source_type(file, requested)
-    if file.present?
-      return "pdf" if Ingest::TextExtractor.pdf?(file.content_type, file.original_filename)
-      return "html" if Ingest::TextExtractor.html?(file.content_type, file.original_filename)
-    end
-
-    requested.presence || "text"
   end
 
   def serialize(doc)

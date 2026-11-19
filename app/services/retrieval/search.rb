@@ -1,62 +1,104 @@
 # frozen_string_literal: true
 
 module Retrieval
+  # Finds the chunks most relevant to a query within one tenant.
+  #
+  # Owns its own input rules: callers pass raw values and read back what was
+  # actually used (`mode`, `top_k`). In every mode a higher `score` is better:
+  # cosine similarity for vector, reciprocal-rank-fusion score for hybrid.
   class Search
+    class InvalidInput < ArgumentError; end
+
+    Result = Struct.new(:hits, :mode, :top_k, keyword_init: true)
+
     MODES = %w[vector hybrid].freeze
+    DEFAULT_MODE = "vector"
     RRF_K = 60
+    MAX_QUERY_CHARS = 4_000
 
     def initialize(tenant:, embeddings: Embeddings::Client.build)
       @tenant = tenant
       @embeddings = embeddings
     end
 
-    def call(query:, top_k: default_top_k, namespace: nil, mode: "vector")
-      k = [ [ top_k.to_i, 1 ].max, max_top_k ].min
-      search_mode = normalize_mode(mode)
-      scope = Chunk.for_tenant(@tenant).embedded
+    def call(query:, top_k: nil, namespace: nil, mode: nil)
+      text = validate_query(query)
+      search_mode = validate_mode(mode)
+      k = effective_top_k(top_k)
+
+      scope = Chunk.for_tenant(@tenant).embedded.embedded_with(@embeddings.model_id)
       scope = scope.in_namespace(namespace) if namespace.present?
 
-      case search_mode
-      when "hybrid"
-        hybrid_search(scope, query, k)
-      else
-        vector_search(scope, query, k)
-      end
+      hits = search_mode == "hybrid" ? hybrid_search(scope, text, k) : vector_search(scope, text, k)
+      Result.new(hits: hits, mode: search_mode, top_k: k)
     end
 
     private
 
-    def normalize_mode(mode)
-      value = mode.to_s.presence || "vector"
+    def validate_query(query)
+      text = query.to_s.strip
+      raise InvalidInput, "query is required" if text.empty?
+      raise InvalidInput, "query is too long (max #{MAX_QUERY_CHARS} characters)" if text.length > MAX_QUERY_CHARS
+
+      text
+    end
+
+    def validate_mode(mode)
+      value = mode.to_s.presence || DEFAULT_MODE
       return value if MODES.include?(value)
 
-      "vector"
+      raise InvalidInput, "mode must be one of: #{MODES.join(', ')}"
+    end
+
+    def effective_top_k(top_k)
+      requested = top_k.presence ? top_k.to_i : default_top_k
+      requested.clamp(1, max_top_k)
     end
 
     def vector_search(scope, query, k)
-      vector = @embeddings.embed([ query ]).first
-      scope.nearest_neighbors(:embedding, vector, distance: "cosine")
-           .limit(k)
-           .map { |chunk| serialize_chunk(chunk, chunk.neighbor_distance) }
+      nearest(scope, query, k).map do |chunk|
+        serialize_chunk(chunk, 1.0 - chunk.neighbor_distance)
+      end
     end
 
     def hybrid_search(scope, query, k)
       candidate_limit = [ k * 4, max_top_k * 2 ].max
-      vector_hits = vector_ranked(scope, query, candidate_limit)
-      keyword_hits = keyword_ranked(scope, query, candidate_limit)
+      vector_ids = nearest(scope, query, candidate_limit).map(&:id)
+      keyword_ids = keyword_ranked(scope, query, candidate_limit)
 
-      fused = reciprocal_rank_fuse(vector_hits, keyword_hits)
-      fused.first(k).map do |chunk_id, rrf_score|
-        chunk = Chunk.find(chunk_id)
-        serialize_chunk(chunk, rrf_score)
+      fused = reciprocal_rank_fuse(vector_ids, keyword_ids).first(k)
+      chunks = scope.where(id: fused.map(&:first)).index_by(&:id)
+      fused.filter_map do |chunk_id, rrf_score|
+        chunk = chunks[chunk_id]
+        serialize_chunk(chunk, rrf_score) if chunk
       end
     end
 
-    def vector_ranked(scope, query, limit)
+    def nearest(scope, query, limit)
       vector = @embeddings.embed([ query ]).first
-      scope.nearest_neighbors(:embedding, vector, distance: "cosine")
-           .limit(limit)
-           .pluck(:id)
+      with_filtered_index_scan do
+        scope.nearest_neighbors(:embedding, vector, distance: "cosine").limit(limit).to_a
+      end
+    end
+
+    # An HNSW index returns its nearest rows first and applies the tenant and
+    # namespace filters afterwards, which can leave a small tenant with too few
+    # results. Iterative scan (pgvector >= 0.8) keeps scanning until `limit`
+    # rows pass the filters.
+    def with_filtered_index_scan
+      return yield unless self.class.iterative_scan_supported?
+
+      Chunk.transaction do
+        Chunk.connection.execute("SET LOCAL hnsw.iterative_scan = 'strict_order'")
+        yield
+      end
+    end
+
+    def self.iterative_scan_supported?
+      return @iterative_scan_supported if defined?(@iterative_scan_supported)
+
+      version = Chunk.connection.select_value("SELECT extversion FROM pg_extension WHERE extname = 'vector'")
+      @iterative_scan_supported = version.present? && Gem::Version.new(version) >= Gem::Version.new("0.8.0")
     end
 
     def keyword_ranked(scope, query, limit)

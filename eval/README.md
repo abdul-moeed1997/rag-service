@@ -10,6 +10,12 @@ Uses the `fake` embedding provider by default (deterministic, no API key):
 bin/rails retrieval:eval
 ```
 
+Fake vectors carry no meaning, so those numbers only prove the pipeline runs end to end. To measure real search quality, run against the provider you deploy with:
+
+```bash
+EMBEDDING_PROVIDER=openai OPENAI_API_KEY=... bin/rails retrieval:eval
+```
+
 Optional custom golden file:
 
 ```bash

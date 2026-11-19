@@ -20,7 +20,7 @@ paths:
   /health:
     get:
       tags: [Health]
-      summary: Liveness
+      summary: Readiness (checks the database)
       security: []
       responses:
         "200":
@@ -33,6 +33,11 @@ paths:
                   status:
                     type: string
                     example: ok
+                  database:
+                    type: string
+                    example: ok
+        "503":
+          description: Database unreachable
   /openapi.yaml:
     get:
       tags: [Health]
@@ -46,6 +51,35 @@ paths:
               schema:
                 type: string
   /api_keys:
+    get:
+      tags: [ApiKeys]
+      summary: List a tenant's API keys (operator). Tokens are never returned.
+      security:
+        - OperatorKey: []
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Keys for the tenant, newest first
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  api_keys:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ApiKey"
+        "401":
+          description: Unauthorized
+        "404":
+          description: Tenant not found
+        "429":
+          description: Rate limited (per IP)
     post:
       tags: [ApiKeys]
       summary: Mint a tenant API key (operator)
@@ -75,7 +109,11 @@ paths:
                       description: Optional ingest status webhook URL for the tenant
                     tenant_webhook_secret:
                       type: string
-                      description: Optional HMAC secret for X-Rag-Signature
+                      description: Optional HMAC secret for X-Rag-Signature (stored encrypted)
+                    expires_at:
+                      type: string
+                      format: date-time
+                      description: Optional future time after which the key stops working
       responses:
         "201":
           description: Created (raw token returned once)
@@ -83,6 +121,34 @@ paths:
           description: Unauthorized
         "422":
           description: Invalid request
+        "429":
+          description: Rate limited (per IP)
+  /api_keys/{id}:
+    delete:
+      tags: [ApiKeys]
+      summary: Revoke an API key (operator). Takes effect on the next request.
+      security:
+        - OperatorKey: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: The revoked key
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  api_key:
+                    $ref: "#/components/schemas/ApiKey"
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
   /documents:
     get:
       tags: [Documents]
@@ -137,6 +203,7 @@ paths:
                       type: string
                     content:
                       type: string
+                      description: Up to 10 MB
                     source_type:
                       type: string
                       enum: [text, pdf, html]
@@ -158,6 +225,8 @@ paths:
           description: Accepted for ingest
         "200":
           description: Idempotent replay of an existing document
+        "422":
+          description: Invalid document (missing content, unsupported file type, or over 10 MB)
   /documents/{id}:
     get:
       tags: [Documents]
@@ -210,8 +279,10 @@ paths:
               properties:
                 query:
                   type: string
+                  maxLength: 4000
                 top_k:
                   type: integer
+                  description: Clamped to 1..MAX_TOP_K (default 20). The response reports the value used.
                 namespace:
                   type: string
                   description: Limit retrieval to chunks in this namespace; omit to search all namespaces for the tenant
@@ -222,7 +293,44 @@ paths:
                   description: vector = cosine kNN only; hybrid = keyword FTS + vector fused with RRF
       responses:
         "200":
-          description: Chunks
+          description: Chunks, best match first
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  query:
+                    type: string
+                  namespace:
+                    type: string
+                    nullable: true
+                  mode:
+                    type: string
+                    enum: [vector, hybrid]
+                    description: The mode that ran
+                  top_k:
+                    type: integer
+                    description: The top_k that was applied after clamping
+                  chunks:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        document_id:
+                          type: integer
+                        position:
+                          type: integer
+                        content:
+                          type: string
+                        score:
+                          type: number
+                          description: Higher is better. Cosine similarity in vector mode, RRF score in hybrid mode; not comparable across modes.
+        "422":
+          description: Missing, blank, or too-long query, or an unknown mode
+        "503":
+          description: Embedding provider unavailable
 components:
   securitySchemes:
     BearerAuth:
@@ -242,6 +350,36 @@ components:
       schema:
         type: integer
   schemas:
+    ApiKey:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        tenant_id:
+          type: integer
+        token_prefix:
+          type: string
+        active:
+          type: boolean
+          description: False once revoked or expired
+        last_used_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Updated at most once every 5 minutes
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        revoked_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
     Document:
       type: object
       properties:

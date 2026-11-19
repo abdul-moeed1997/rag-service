@@ -42,6 +42,16 @@ class Webhooks::IngestStatusTest < ActiveSupport::TestCase
     stubs.verify_stubbed_calls
   end
 
+  test "does not deliver to a host that resolves to an internal address" do
+    previous = Webhooks::UrlGuard.resolver
+    Webhooks::UrlGuard.resolver = ->(_host) { [ "10.0.0.7" ] }
+    Webhooks::IngestStatus.connection_builder = -> { raise "should not connect" }
+
+    assert_nothing_raised { Webhooks::IngestStatus.call(document: @document) }
+  ensure
+    Webhooks::UrlGuard.resolver = previous
+  end
+
   test "skips when webhook_url is blank" do
     @tenant.update!(webhook_url: nil)
     called = false

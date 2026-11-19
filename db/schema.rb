@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_18_130000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_19_100200) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "vector"
@@ -51,6 +51,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_18_130000) do
     t.string "token_digest", null: false
     t.string "token_prefix", null: false
     t.datetime "updated_at", null: false
+    t.datetime "revoked_at"
+    t.datetime "expires_at"
     t.index ["tenant_id"], name: "index_api_keys_on_tenant_id"
     t.index ["token_digest"], name: "index_api_keys_on_token_digest", unique: true
     t.index ["token_prefix"], name: "index_api_keys_on_token_prefix"
@@ -66,9 +68,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_18_130000) do
     t.datetime "updated_at", null: false
     t.string "namespace", default: "default", null: false
     t.virtual "content_tsv", type: :tsvector, as: "to_tsvector('english'::regconfig, COALESCE(content, ''::text))", stored: true
+    t.string "embedding_model"
     t.index ["content_tsv"], name: "index_chunks_on_content_tsv", using: :gin
     t.index ["document_id", "position"], name: "index_chunks_on_document_id_and_position", unique: true
     t.index ["document_id"], name: "index_chunks_on_document_id"
+    t.index ["embedding"], name: "index_chunks_on_embedding_hnsw", opclass: :vector_cosine_ops, using: :hnsw
     t.index ["tenant_id", "namespace"], name: "index_chunks_on_tenant_id_and_namespace"
     t.index ["tenant_id"], name: "index_chunks_on_tenant_id"
   end
