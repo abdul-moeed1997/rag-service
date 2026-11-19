@@ -42,6 +42,26 @@ class HardeningTest < ActionDispatch::IntegrationTest
     assert_match(/mode must be one of/, response.parsed_body["message"])
   end
 
+  test "query applies min_score and echoes it" do
+    perform_enqueued_jobs do
+      post "/documents",
+           params: { document: { title: "Notes", content: "exact unique bamboo protocol" } },
+           headers: auth_for(@key), as: :json
+    end
+
+    post "/query", params: { query: "exact unique bamboo protocol", min_score: 0.99 }, headers: auth_for(@key), as: :json
+    assert_response :success
+    assert_equal 1, response.parsed_body["chunks"].size
+    assert_in_delta 0.99, response.parsed_body["min_score"]
+
+    post "/query", params: { query: "something else entirely", min_score: 0.99 }, headers: auth_for(@key), as: :json
+    assert_response :success
+    assert_empty response.parsed_body["chunks"]
+
+    post "/query", params: { query: "x", min_score: "high" }, headers: auth_for(@key), as: :json
+    assert_response :unprocessable_entity
+  end
+
   test "query rejects a missing or blank query" do
     post "/query", params: { query: "  " }, headers: auth_for(@key), as: :json
     assert_response :unprocessable_entity

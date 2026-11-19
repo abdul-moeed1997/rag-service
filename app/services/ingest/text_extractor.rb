@@ -12,6 +12,13 @@ module Ingest
     HTML_EXTENSIONS = %w[.html .htm].freeze
     PDF_CONTENT_TYPES = %w[application/pdf application/x-pdf].freeze
     HTML_CONTENT_TYPES = %w[text/html application/xhtml+xml].freeze
+    # Never visible text. `.mermaid` holds diagram source that the browser replaces with a drawing.
+    HTML_HIDDEN = "script, style, noscript, template, svg, .mermaid"
+    # Elements a browser puts on their own line. Their text must not run into a neighbour's.
+    HTML_BLOCK_TAGS = %w[
+      address article aside blockquote br dd details div dl dt fieldset figcaption figure footer form
+      h1 h2 h3 h4 h5 h6 header hr li main nav ol p pre section summary table tbody td tfoot th thead tr ul
+    ].to_set.freeze
 
     def self.supported?(content_type, filename)
       pdf?(content_type, filename) || html?(content_type, filename) || text?(content_type, filename)
@@ -72,9 +79,30 @@ module Ingest
     def extract_html(io)
       raw = read_text(io)
       doc = Nokogiri::HTML(raw)
-      doc.css("script, style, noscript").remove
-      text = doc.at("body")&.text || doc.text
-      text.to_s.gsub(/[ \t]+/, " ").gsub(/\n{3,}/, "\n\n").strip
+      doc.css(HTML_HIDDEN).remove
+      root = doc.at("body") || doc
+      separate_elements(doc, root)
+
+      root.text.to_s
+          .gsub(/[ \t\u00A0]+/, " ")
+          .gsub(/ ?\n ?/, "\n")
+          .gsub(/\n{3,}/, "\n\n")
+          .strip
+    end
+
+    # Nokogiri's #text joins the text of neighbouring elements with nothing in
+    # between ("<li>one</li><li>two</li>" => "onetwo"). Put a line break around
+    # block elements and a space between back-to-back inline elements, so words
+    # stay whole and paragraphs stay apart.
+    def separate_elements(doc, root)
+      root.css("*").each do |node|
+        if HTML_BLOCK_TAGS.include?(node.name)
+          node.add_previous_sibling(Nokogiri::XML::Text.new("\n", doc))
+          node.add_next_sibling(Nokogiri::XML::Text.new("\n", doc))
+        elsif node.next_sibling&.element?
+          node.add_next_sibling(Nokogiri::XML::Text.new(" ", doc))
+        end
+      end
     end
 
     def read_text(io)

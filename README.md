@@ -126,6 +126,8 @@ Omit `namespace` to search all namespaces for the tenant. Set `mode` to `hybrid`
 
 The response echoes the `mode` and `top_k` that actually ran (`top_k` is clamped to `MAX_TOP_K`). In both modes a higher `score` is better: cosine similarity for `vector`, RRF score for `hybrid`. Scores from different modes are not comparable.
 
+Search always returns the nearest chunks, even when nothing in the tenant's documents is relevant. Pass `min_score` to drop weak hits, so a query with no good match returns an empty `chunks` list. It suits `vector` mode best (cosine similarity, `-1` to `1`; a sensible cutoff depends on your embedding model, so tune it on your own data). In `hybrid` mode the score is a rank-fusion value: a chunk found by both keyword and vector search scores above `0.0164`, and one found by only one of them cannot.
+
 ## Retrieval eval
 
 Golden recall@k harness (vector vs hybrid) lives under `eval/`. See [`eval/README.md`](eval/README.md).

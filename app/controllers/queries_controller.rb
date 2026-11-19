@@ -12,7 +12,8 @@ class QueriesController < ApplicationController
       query: query,
       top_k: params[:top_k],
       namespace: namespace,
-      mode: params[:mode]
+      mode: params[:mode],
+      min_score: params[:min_score]
     )
 
     render json: {
@@ -20,7 +21,8 @@ class QueriesController < ApplicationController
       chunks: result.hits,
       namespace: namespace,
       mode: result.mode,
-      top_k: result.top_k
+      top_k: result.top_k,
+      min_score: result.min_score
     }
   rescue Retrieval::Search::InvalidInput => e
     render json: { error: "invalid", message: e.message }, status: :unprocessable_entity
