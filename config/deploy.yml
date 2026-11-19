@@ -1,6 +1,8 @@
 # Kamal deploy config for RAG Service.
 # Before first deploy: set servers.web / accessories.db.host, proxy.host, then
-# export KAMAL_REGISTRY_PASSWORD (GHCR token), POSTGRES_PASSWORD, OPERATOR_API_KEY.
+# export KAMAL_REGISTRY_PASSWORD (GHCR token), POSTGRES_PASSWORD, OPERATOR_API_KEY,
+# the embedding provider key, and the two ACTIVE_RECORD_ENCRYPTION_* keys.
+# The app refuses to boot in production if the embedding or encryption settings are missing.
 
 service: rag_service
 
@@ -10,10 +12,11 @@ image: abdul-moeed1997/rag-service
 servers:
   web:
     - 192.168.0.1
-  # job:
-  #   hosts:
-  #     - 192.168.0.1
-  #   cmd: bin/jobs
+  # Ingest jobs run in their own container so a heavy PDF does not slow down queries.
+  job:
+    hosts:
+      - 192.168.0.1
+    cmd: bin/jobs
 
 # Let's Encrypt via kamal-proxy. Requires config.assume_ssl / force_ssl (enabled in production.rb).
 # Point DNS A/AAAA for this host at the server IP before first deploy.
@@ -40,16 +43,19 @@ env:
     - OPENAI_API_KEY
     - VOYAGE_API_KEY
     - EMBEDDING_API_KEY
+    - ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY
+    - ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT
   clear:
-    SOLID_QUEUE_IN_PUMA: true
     DB_HOST: rag_service-db
     DB_USERNAME: rag_service
-    EMBEDDING_PROVIDER: fake
+    # openai, voyage, or local. "fake" is refused in production unless
+    # ALLOW_FAKE_EMBEDDINGS is "true" (demo only: search results are meaningless).
+    # openai's text-embedding-3-small matches the schema's vector(1536).
+    EMBEDDING_PROVIDER: openai
     EMBEDDING_DIMENSIONS: 1536
     LOG_FORMAT: json
     RAILS_LOG_LEVEL: info
-    # Override after deploy when using a real provider, e.g.:
-    # EMBEDDING_PROVIDER: openai
+    # Other provider settings:
     # OPENAI_EMBEDDING_MODEL: text-embedding-3-small
     # VOYAGE_EMBEDDING_MODEL: voyage-3
     # EMBEDDING_BASE_URL: http://embeddings:11434

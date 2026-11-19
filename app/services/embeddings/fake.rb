@@ -3,7 +3,11 @@
 require "digest"
 
 module Embeddings
+  # Deterministic vectors with no semantic meaning. For tests and local demos only.
   class Fake < Client
+    def provider_name = "fake"
+    def model = "sha256"
+
     def embed(texts)
       Array(texts).map { |text| vector_for(text) }
     end

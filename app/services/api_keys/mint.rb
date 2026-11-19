@@ -16,6 +16,7 @@ module ApiKeys
       @webhook_secret_set = extras.key?(:tenant_webhook_secret)
       @tenant_webhook_url = extras[:tenant_webhook_url].to_s.strip.presence
       @tenant_webhook_secret = extras[:tenant_webhook_secret].to_s.strip.presence
+      @expires_at = parse_expiry(extras[:expires_at])
     end
 
     def call
@@ -23,11 +24,22 @@ module ApiKeys
 
       tenant = resolve_tenant!
       apply_webhook_settings!(tenant)
-      key = ApiKey.generate_for!(tenant: tenant, name: @name)
+      key = ApiKey.generate_for!(tenant: tenant, name: @name, expires_at: @expires_at)
       { tenant: tenant, api_key: key }
     end
 
     private
+
+    def parse_expiry(value)
+      return if value.blank?
+
+      time = Time.zone.parse(value.to_s)
+      raise Error, "expires_at must be a valid future time" if time.nil? || time.past?
+
+      time
+    rescue ArgumentError
+      raise Error, "expires_at must be a valid future time"
+    end
 
     def resolve_tenant!
       if @tenant_id.present?

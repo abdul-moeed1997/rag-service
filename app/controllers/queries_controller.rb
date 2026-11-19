@@ -1,21 +1,32 @@
 # frozen_string_literal: true
 
 class QueriesController < ApplicationController
-  def create
-    query = params.require(:query).to_s
-    if query.blank?
-      return render json: { error: "invalid", message: "query is required" }, status: :unprocessable_entity
-    end
+  # The default JSON wrapper nests the whole body under "query" (the controller
+  # name), which would collide with the real `query` field.
+  wrap_parameters false
 
-    top_k = params[:top_k]
+  def create
     namespace = params[:namespace].presence
-    mode = params[:mode].presence || "vector"
-    chunks = Retrieval::Search.new(tenant: current_tenant).call(
+    query = params[:query].is_a?(String) ? params[:query] : nil
+    result = Retrieval::Search.new(tenant: current_tenant).call(
       query: query,
-      top_k: top_k || ENV.fetch("DEFAULT_TOP_K", "5"),
+      top_k: params[:top_k],
       namespace: namespace,
-      mode: mode
+      mode: params[:mode]
     )
-    render json: { query: query, chunks: chunks, namespace: namespace, mode: mode }
+
+    render json: {
+      query: query.strip,
+      chunks: result.hits,
+      namespace: namespace,
+      mode: result.mode,
+      top_k: result.top_k
+    }
+  rescue Retrieval::Search::InvalidInput => e
+    render json: { error: "invalid", message: e.message }, status: :unprocessable_entity
+  rescue Embeddings::Error => e
+    Rails.error.report(e, handled: true, context: { source: "query" })
+    render json: { error: "embedding_unavailable", message: "Embedding provider is unavailable. Try again shortly." },
+           status: :service_unavailable
   end
 end

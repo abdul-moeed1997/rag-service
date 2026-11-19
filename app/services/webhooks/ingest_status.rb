@@ -37,6 +37,11 @@ module Webhooks
     def call
       return if @tenant.webhook_url.blank?
 
+      unless UrlGuard.allowed?(@tenant.webhook_url)
+        Rails.logger.warn("Ingest webhook blocked document_id=#{@document.id} reason=disallowed_host")
+        return
+      end
+
       body = JSON.generate(
         event: "document.ingest.#{@document.status}",
         document_id: @document.id,
@@ -61,6 +66,7 @@ module Webhooks
       end
     rescue StandardError => e
       Rails.logger.warn("Ingest webhook error document_id=#{@document.id} error=#{e.class}: #{e.message}")
+      Rails.error.report(e, handled: true, context: { document_id: @document.id, source: "ingest_webhook" })
     end
 
     private

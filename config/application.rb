@@ -28,5 +28,20 @@ module RagService
     # Middleware like session, flash, cookies can be added back manually.
     # Skip views, helpers and assets when generating a new resource.
     config.api_only = true
+
+    # Active Record encryption (tenant webhook secrets).
+    # Production: set both ENV vars (or `active_record_encryption` in credentials).
+    # Development and test fall back to fixed, non-secret keys.
+    encryption_primary_key = ENV["ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY"].presence
+    encryption_salt = ENV["ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT"].presence
+    unless Rails.env.production?
+      encryption_primary_key ||= "development-only-primary-key-0000000"
+      encryption_salt ||= "development-only-derivation-salt-000"
+    end
+    config.active_record.encryption.primary_key = encryption_primary_key if encryption_primary_key
+    config.active_record.encryption.key_derivation_salt = encryption_salt if encryption_salt
+    # Rows written before encryption was turned on stay readable.
+    # Run `bin/rails rag:encrypt_webhook_secrets` once to encrypt them.
+    config.active_record.encryption.support_unencrypted_data = true
   end
 end

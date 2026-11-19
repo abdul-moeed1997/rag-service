@@ -122,7 +122,9 @@ curl -s -X POST http://localhost:3000/query \
   -d '{"query":"What does the doc say?","top_k":5,"namespace":"default","mode":"vector"}'
 ```
 
-Omit `namespace` to search all namespaces for the tenant. Set `mode` to `hybrid` to fuse keyword full-text search with vector similarity (RRF); default is `vector`. Pass retrieved `chunks` into your own LLM to produce an answer.
+Omit `namespace` to search all namespaces for the tenant. Set `mode` to `hybrid` to fuse keyword full-text search with vector similarity (RRF); default is `vector`. An unknown `mode` returns `422`. Pass retrieved `chunks` into your own LLM to produce an answer.
+
+The response echoes the `mode` and `top_k` that actually ran (`top_k` is clamped to `MAX_TOP_K`). In both modes a higher `score` is better: cosine similarity for `vector`, RRF score for `hybrid`. Scores from different modes are not comparable.
 
 ## Retrieval eval
 
@@ -139,8 +141,28 @@ Each API key belongs to a tenant. Documents and vector search are always scoped 
 ## Rate limiting
 
 Authenticated tenant requests are limited per API key (`RATE_LIMIT_PER_MINUTE`, default 60).
+Operator endpoints are limited per IP (`OPERATOR_RATE_LIMIT_PER_MINUTE`, default 30); failed attempts count.
 Exceeded limits return `429` with `Retry-After` and `X-RateLimit-*` headers.
 Set `RATE_LIMIT_ENABLED=false` to disable.
+
+## API key lifecycle (operator)
+
+```bash
+# List a tenant's keys (tokens are never shown again)
+curl -s "http://localhost:3000/api_keys?tenant_id=1" -H "Authorization: Bearer $OPERATOR_API_KEY"
+
+# Revoke a key; it stops working on the next request
+curl -s -X DELETE http://localhost:3000/api_keys/1 -H "Authorization: Bearer $OPERATOR_API_KEY"
+```
+
+Pass `expires_at` (ISO 8601) when minting to create a key that expires on its own.
+
+## Ingest behaviour
+
+- Text is split at paragraph, sentence, or word boundaries (`CHUNK_SIZE` / `CHUNK_OVERLAP` characters), never mid-word unless a single token is longer than a chunk.
+- All chunks of a document are embedded in batches, then swapped in with one transaction. A failed reindex keeps the previous chunks searchable.
+- Provider timeouts, `429`, and `5xx` are retried with backoff (the document returns to `pending` between attempts). Other errors mark it `failed`.
+- JSON `content` and uploaded files are each limited to 10 MB.
 
 ## Ingest webhooks (optional)
 
@@ -157,6 +179,8 @@ Prefer polling `GET /documents/:id` for status. When a tenant has `webhook_url` 
 ```
 
 If `webhook_secret` is set, the body is signed with `X-Rag-Signature: sha256=<hmac_hex>`. Webhook delivery failures are logged and do not change document status.
+
+Webhook secrets are encrypted in the database. Webhook URLs that point at loopback, private, or link-local addresses are rejected, and delivery is skipped if the host resolves to one (set `WEBHOOK_ALLOW_PRIVATE_HOSTS=true` for local development only).
 
 ## OpenAPI
 

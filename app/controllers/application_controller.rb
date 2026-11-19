@@ -1,8 +1,7 @@
 # frozen_string_literal: true
 
 class ApplicationController < ActionController::API
-  include Authenticatable
-  include RateLimitable
+  include RequestGate
   include RequestIdTrackable
 
   rescue_from ActiveRecord::RecordNotFound do

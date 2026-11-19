@@ -5,7 +5,7 @@ module Retrieval
     class Runner
       DEFAULT_GOLDEN = Rails.root.join("eval/golden.json")
       K_VALUES = [ 1, 5, 10 ].freeze
-      MODES = %w[vector hybrid].freeze
+      MODES = Retrieval::Search::MODES
 
       def initialize(golden_path: DEFAULT_GOLDEN, embeddings: Embeddings::Client.build)
         @golden_path = Pathname(golden_path)
@@ -18,7 +18,7 @@ module Retrieval
         title_to_id = ingest_documents(tenant, payload.fetch("documents"))
         search = Retrieval::Search.new(tenant: tenant, embeddings: @embeddings)
 
-        report = { modes: {} }
+        report = { embedding_model: @embeddings.model_id, modes: {} }
 
         MODES.each do |mode|
           report[:modes][mode] = evaluate_mode(search, payload.fetch("queries"), title_to_id, mode)
@@ -43,7 +43,7 @@ module Retrieval
             status: "pending",
             namespace: Document::DEFAULT_NAMESPACE
           )
-          IngestDocumentJob.perform_now(doc.id)
+          Ingest::Pipeline.call(doc, embeddings: @embeddings)
           doc.reload
           raise "Ingest failed for #{doc.title}: #{doc.error_message}" unless doc.status == "ready"
 
@@ -58,7 +58,7 @@ module Retrieval
 
         queries.each do |row|
           relevant_ids = row.fetch("relevant_titles").map { |title| title_to_id.fetch(title) }
-          hits = search.call(query: row.fetch("query"), top_k: K_VALUES.max, mode: mode)
+          hits = search.call(query: row.fetch("query"), top_k: K_VALUES.max, mode: mode).hits
           retrieved_ids = hits.map { |hit| hit[:document_id] }
 
           K_VALUES.each do |k|
